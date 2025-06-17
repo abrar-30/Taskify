@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Project, Task } from '../../types';
-import { projectsAPI, tasksAPI } from '../../lib/api';
-import { Plus, FolderOpen, CheckSquare, Clock, Users } from 'lucide-react';
+import { Project, Task, User } from '../../types';
+import { projectsAPI, tasksAPI, authAPI } from '../../lib/api';
+import { Plus, FolderOpen, CheckSquare, Clock, Users, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
 
   const loadData = async () => {
@@ -21,10 +22,17 @@ const Dashboard: React.FC = () => {
 
       const tasksData = await tasksAPI.getAll();
       setTasks(Array.isArray(tasksData) ? tasksData : []);
+
+      // Load users only for admin
+      if (user?.isAdmin) {
+        const usersData = await authAPI.getAllUsersForAdmin();
+        setUsers(Array.isArray(usersData) ? usersData : []);
+      }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       setProjects([]);
       setTasks([]);
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -119,11 +127,19 @@ const Dashboard: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
           <div className="flex items-center">
             <div className="p-2 bg-green-100 rounded-lg">
-              <CheckSquare className="h-6 w-6 text-green-600" />
+              {user?.isAdmin ? (
+                <UserCheck className="h-6 w-6 text-green-600" />
+              ) : (
+                <CheckSquare className="h-6 w-6 text-green-600" />
+              )}
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">My Tasks</p>
-              <p className="text-2xl font-bold text-gray-900">{taskStats.total}</p>
+              <p className="text-sm font-medium text-gray-600">
+                {user?.isAdmin ? 'Total Users' : 'My Tasks'}
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {user?.isAdmin ? users.length : taskStats.total}
+              </p>
             </div>
           </div>
         </div>
@@ -134,8 +150,12 @@ const Dashboard: React.FC = () => {
               <Clock className="h-6 w-6 text-yellow-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">In Progress</p>
-              <p className="text-2xl font-bold text-gray-900">{taskStats.inProgress}</p>
+              <p className="text-sm font-medium text-gray-600">
+                {user?.isAdmin ? 'Total Tasks' : 'In Progress'}
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {user?.isAdmin ? tasks.length : taskStats.inProgress}
+              </p>
             </div>
           </div>
         </div>
@@ -146,14 +166,18 @@ const Dashboard: React.FC = () => {
               <Users className="h-6 w-6 text-purple-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Completed</p>
-              <p className="text-2xl font-bold text-gray-900">{taskStats.completed}</p>
+              <p className="text-sm font-medium text-gray-600">
+                {user?.isAdmin ? 'Active Projects' : 'Completed'}
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {user?.isAdmin ? projects.length : taskStats.completed}
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Projects and Tasks */}
+      {/* Recent Projects and Tasks/Users */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Recent Projects */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -207,68 +231,119 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Recent Tasks */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-gray-900">My Recent Tasks</h2>
-              <Link
-                to="/tasks"
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                View all
-              </Link>
+        {/* Recent Tasks or Users (Admin) */}
+        {user?.isAdmin ? (
+          /* Users Section for Admin */
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-gray-900">System Users</h2>
+                <span className="text-sm text-gray-500 font-medium">
+                  {users.length} total users
+                </span>
+              </div>
+            </div>
+            <div className="p-6">
+              {users.length === 0 ? (
+                <div className="text-center py-8">
+                  <UserCheck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No users found</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {users.slice(0, 5).map((user) => (
+                    <div
+                      key={user._id}
+                      className="p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium text-gray-900">{user.username}</h3>
+                          <p className="text-sm text-gray-600 mt-1">{user.email}</p>
+                          <div className="flex items-center mt-2">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              user.role === 'admin'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {user.role}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {format(new Date(user.createdAt), 'MMM d')}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-          <div className="p-6">
-            {recentTasks.length === 0 ? (
-              <div className="text-center py-8">
-                <CheckSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No tasks assigned to you</p>
+        ) : (
+          /* Tasks Section for Regular Users */
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-gray-900">My Recent Tasks</h2>
+                <Link
+                  to="/tasks"
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  View all
+                </Link>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {recentTasks.map((task) => (
-                  <Link
-                    key={task._id}
-                    to={`/tasks/${task._id}`}
-                    className="block p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium text-gray-900">{task.title}</h3>
-                        <p className="text-sm text-gray-600 mt-1">{task.project?.name || 'No project'}</p>
-                        <div className="flex items-center mt-2 space-x-2">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            task.status === 'completed'
-                              ? 'bg-green-100 text-green-800'
-                              : task.status === 'in-progress'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {task.status}
-                          </span>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            task.priority === 'high'
-                              ? 'bg-red-100 text-red-800'
-                              : task.priority === 'medium'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-green-100 text-green-800'
-                          }`}>
-                            {task.priority}
-                          </span>
+            </div>
+            <div className="p-6">
+              {recentTasks.length === 0 ? (
+                <div className="text-center py-8">
+                  <CheckSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No tasks assigned to you</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {recentTasks.map((task) => (
+                    <Link
+                      key={task._id}
+                      to={`/tasks/${task._id}`}
+                      className="block p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium text-gray-900">{task.title}</h3>
+                          <p className="text-sm text-gray-600 mt-1">{task.project?.name || 'No project'}</p>
+                          <div className="flex items-center mt-2 space-x-2">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              task.status === 'completed'
+                                ? 'bg-green-100 text-green-800'
+                                : task.status === 'in-progress'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {task.status}
+                            </span>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              task.priority === 'high'
+                                ? 'bg-red-100 text-red-800'
+                                : task.priority === 'medium'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-green-100 text-green-800'
+                            }`}>
+                              {task.priority}
+                            </span>
+                          </div>
                         </div>
+                        <span className="text-xs text-gray-500">
+                          {format(new Date(task.createdAt), 'MMM d')}
+                        </span>
                       </div>
-                      <span className="text-xs text-gray-500">
-                        {format(new Date(task.createdAt), 'MMM d')}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

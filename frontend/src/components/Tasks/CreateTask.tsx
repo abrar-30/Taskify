@@ -75,14 +75,10 @@ const CreateTask: React.FC = () => {
 
     try {
       setLoadingMembers(true);
-      console.log('Loading members for project:', projectId);
       const members = await projectsAPI.getMembers(projectId);
-      console.log('Project members loaded:', members);
       setProjectMembers(members);
     } catch (error: any) {
       console.error('Failed to load project members:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
       toast.error(`Failed to load project members: ${error.response?.data?.message || error.message}`);
       setProjectMembers([]);
     } finally {

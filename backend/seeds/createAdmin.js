@@ -1,9 +1,8 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
-const dotenv = require('dotenv');
 
-// Load environment variables
-dotenv.config();
+require('dotenv').config();
+
 
 const createAdminUser = async () => {
     try {

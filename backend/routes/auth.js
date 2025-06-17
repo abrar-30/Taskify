@@ -18,4 +18,7 @@ router.get('/me', authenticate, authController.getCurrentUser);
 // Get all users route (for member selection)
 router.get('/users', authenticate, authController.getAllUsers);
 
+// Get all users including admins (for admin dashboard)
+router.get('/admin/users', authenticate, authController.getAllUsersForAdmin);
+
 module.exports = router;

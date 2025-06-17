@@ -57,6 +57,11 @@ export const authAPI = {
     const response = await api.get('/auth/users');
     return response.data;
   },
+
+  getAllUsersForAdmin: async (): Promise<User[]> => {
+    const response = await api.get('/auth/admin/users');
+    return response.data;
+  },
 };
 
 // Projects API

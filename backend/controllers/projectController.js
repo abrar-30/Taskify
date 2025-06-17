@@ -70,17 +70,23 @@ exports.getProjectById = async (req, res) => {
 exports.getProjectMembers = async (req, res) => {
     try {
         const project = await Project.findById(req.params.id)
-            .populate('creator', 'username email')
-            .populate('members', 'username email');
+            .populate('creator', 'username email role')
+            .populate('members', 'username email role');
         if (!project) {
             return res.status(404).json({ message: 'Project not found' });
         }
 
-        // Combine creator and members into one array
-        const allMembers = [project.creator];
+        // Combine creator and members into one array, but exclude admin users
+        const allMembers = [];
+
+        // Add creator only if they're not an admin
+        if (project.creator && project.creator.role !== 'admin') {
+            allMembers.push(project.creator);
+        }
+
+        // Add members only if they're not admin users
         project.members.forEach(member => {
-            // Avoid duplicates if creator is also in members array
-            if (!allMembers.some(m => m._id.toString() === member._id.toString())) {
+            if (member.role !== 'admin' && !allMembers.some(m => m._id.toString() === member._id.toString())) {
                 allMembers.push(member);
             }
         });

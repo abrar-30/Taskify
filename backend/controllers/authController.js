@@ -92,14 +92,29 @@ exports.getCurrentUser = (req, res) => {
 };
 
 /**
- * Get all users (for member selection)
+ * Get all users (for member selection) - excludes admin users
  */
 exports.getAllUsers = async (req, res) => {
     try {
-        const users = await User.find({}, { password: 0, salt: 0, hash: 0 });
+        // Exclude admin users from member selection
+        const users = await User.find({ role: { $ne: 'admin' } }, { password: 0, salt: 0, hash: 0 });
         res.status(200).json(users);
     } catch (error) {
         console.error('Error fetching users:', error);
+        res.status(500).json({ message: 'Error fetching users', error: error.message });
+    }
+};
+
+/**
+ * Get all users including admins (for admin dashboard)
+ */
+exports.getAllUsersForAdmin = async (req, res) => {
+    try {
+        // Include all users for admin dashboard
+        const users = await User.find({}, { password: 0, salt: 0, hash: 0 }).sort({ createdAt: -1 });
+        res.status(200).json(users);
+    } catch (error) {
+        console.error('Error fetching users for admin:', error);
         res.status(500).json({ message: 'Error fetching users', error: error.message });
     }
 };
